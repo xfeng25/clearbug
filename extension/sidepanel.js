@@ -19,6 +19,29 @@ const state = {
   busy: false,
 };
 
+const ALL_SITES = { origins: ['<all_urls>'] };
+
+// Ask for website access the first time it's needed (must run inside a click).
+async function ensureAccess() {
+  if (state.access) return true;
+  let granted = false;
+  try { granted = await chrome.permissions.request(ALL_SITES); } catch (_) { granted = false; }
+  state.access = granted;
+  renderAccess();
+  if (!granted) toast('Without website access ClearBug cannot record steps or take screenshots.', 4000);
+  return granted;
+}
+
+function renderAccess() {
+  const box = document.getElementById('access');
+  box.classList.toggle('hidden', !!state.access);
+  if (state.access) return;
+  box.innerHTML = `
+    <b>Allow ClearBug on the websites you test</b>
+    <p>ClearBug needs website access to record your steps, catch page errors and take screenshots. It only records while you run a test case or start recording. Everything stays in your browser.</p>
+    <button class="primary" data-action="allow-access">Allow website access</button>`;
+}
+
 const clsStatus = (s) => String(s).replace(/\s+/g, '-');
 const isRecordable = (tab) => !!tab && /^(https?|file):/.test(tab.url || '');
 
@@ -40,6 +63,7 @@ async function loadAll() {
   state.session = data.session || null;
   state.defects = await getDefects();
   state.settings = await getSettings();
+  state.access = await chrome.permissions.contains(ALL_SITES);
 }
 
 const saveResults = () => chrome.storage.local.set({ results: state.results });
@@ -48,6 +72,7 @@ const saveResults = () => chrome.storage.local.set({ results: state.results });
 
 function render() {
   renderRecbar();
+  renderAccess();
   if (state.view === 'mapping') return renderMapping();
   if (state.view === 'run' && state.suite) return renderRun();
   if (state.suite) { state.view = 'suite'; return renderSuite(); }
@@ -274,16 +299,17 @@ function findNextCase(afterId) {
 // ---------------- actions ----------------
 
 async function recordStep(tc, index, status, note, { evidence = true } = {}) {
+  if (evidence && !state.access) await ensureAccess();
   const tab = await activeTab();
   let evKey = null;
   if (evidence) {
-    if (isRecordable(tab)) {
+    if (isRecordable(tab) && state.access) {
       const shot = await send({ type: 'cb:capture', tabId: tab.id }).catch(() => null);
       if (shot) {
         evKey = `ev:${state.suite.id}:${tc.id}:${index}`;
         await chrome.storage.local.set({ [evKey]: shot });
       }
-    } else {
+    } else if (state.access) {
       toast('No screenshot: switch to the system you are testing first.');
     }
   }
@@ -296,6 +322,7 @@ async function recordStep(tc, index, status, note, { evidence = true } = {}) {
 }
 
 async function openCase(id) {
+  if (!state.access) await ensureAccess();
   state.view = 'run';
   state.runCaseId = id;
   state.pending = null;
@@ -315,6 +342,8 @@ async function openCase(id) {
 }
 
 const actions = {
+  async 'allow-access'() { if (await ensureAccess()) toast('Website access allowed'); },
+
   async import() { fileInput.value = ''; fileInput.click(); },
 
   async sample() {
@@ -457,6 +486,7 @@ const actions = {
   },
 
   async 'start-recording'() {
+    if (!(await ensureAccess())) return;
     const tab = await activeTab();
     await send({
       type: 'cb:start',
@@ -471,6 +501,7 @@ const actions = {
   async 'make-testcase'() { await chrome.tabs.create({ url: chrome.runtime.getURL('testcase.html') }); },
 
   async 'clear-steps'() {
+    if (!(await ensureAccess())) return;
     if (!confirm('Clear the recorded steps and start over?')) return;
     const tab = await activeTab();
     await send({ type: 'cb:clear' });
@@ -480,6 +511,7 @@ const actions = {
   },
 
   async 'report-free'() {
+    if (!(await ensureAccess())) return;
     const tab = await activeTab();
     if (!isRecordable(tab)) { toast('Switch to the page with the bug first.'); return; }
     await send({ type: 'cb:report', tabId: tab.id, tester: state.settings.lastTester || '' });
@@ -554,6 +586,9 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   // don't wipe a note the tester is typing
   if (rerender && !state.pending && state.view !== 'mapping') render();
 });
+
+chrome.permissions.onAdded.addListener(async () => { state.access = await chrome.permissions.contains(ALL_SITES); render(); });
+chrome.permissions.onRemoved.addListener(async () => { state.access = await chrome.permissions.contains(ALL_SITES); render(); });
 
 await loadAll();
 render();

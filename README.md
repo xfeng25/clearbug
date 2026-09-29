@@ -43,6 +43,7 @@ Open the practice site, click the ClearBug button, import the sample file and ru
 
 ## Privacy
 
+- ClearBug asks for website access the first time you start testing (nothing is granted at install). You can remove it anytime in ClearBug's settings.
 - All data stays in the browser (`chrome.storage.local`).
 - Passwords and fields that look like card numbers, SSNs, IBANs or tokens are always masked; a setting hides every typed value.
 - Data leaves the browser only when the tester clicks **Write the report** with an API key set.

@@ -223,5 +223,40 @@ async function restoreBadge() {
 // Clicking the toolbar button opens the ClearBug side panel
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
-chrome.runtime.onStartup.addListener(() => { restoreBadge(); cleanupOldDrafts(); });
-chrome.runtime.onInstalled.addListener(() => { restoreBadge(); cleanupOldDrafts(); });
+// ---------- website access ----------
+// ClearBug asks for website access at first use (optional permission).
+// Once granted, the recorder scripts are registered for every page load
+// and injected into tabs that are already open.
+const SCRIPT_IDS = ['cb-hook', 'cb-recorder'];
+const ALL_SITES = { origins: ['<all_urls>'] };
+
+async function syncContentScripts() {
+  const granted = await chrome.permissions.contains(ALL_SITES);
+  const existing = await chrome.scripting.getRegisteredContentScripts({ ids: SCRIPT_IDS }).catch(() => []);
+  if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: existing.map((s) => s.id) });
+  if (!granted) return false;
+  await chrome.scripting.registerContentScripts([
+    { id: 'cb-hook', matches: ['<all_urls>'], js: ['content/page-hook.js'], runAt: 'document_start', world: 'MAIN' },
+    { id: 'cb-recorder', matches: ['<all_urls>'], js: ['content/recorder.js'], runAt: 'document_start' },
+  ]);
+  return true;
+}
+
+async function injectInto(tabId) {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', files: ['content/page-hook.js'] });
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content/recorder.js'] });
+  } catch (_) { /* chrome:// pages, web store, etc. */ }
+}
+
+async function onAccessGranted() {
+  if (!(await syncContentScripts())) return;
+  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file:///*'] });
+  await Promise.all(tabs.map((t) => injectInto(t.id)));
+}
+
+chrome.permissions.onAdded.addListener(() => { onAccessGranted(); });
+chrome.permissions.onRemoved.addListener(() => { syncContentScripts(); });
+
+chrome.runtime.onStartup.addListener(() => { restoreBadge(); cleanupOldDrafts(); syncContentScripts(); });
+chrome.runtime.onInstalled.addListener(() => { restoreBadge(); cleanupOldDrafts(); onAccessGranted(); });

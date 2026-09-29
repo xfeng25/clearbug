@@ -33,3 +33,18 @@ $('test').addEventListener('click', async () => {
     out.innerHTML = `<span style="color:var(--danger)">✗ ${e.message.replace(/</g, '&lt;')}</span>`;
   }
 });
+
+// ---------- website access ----------
+const ALL_SITES = { origins: ['<all_urls>'] };
+async function renderAccess() {
+  const on = await chrome.permissions.contains(ALL_SITES);
+  $('access-state').innerHTML = on ? '<span style="color:var(--ok)">✓ Allowed on websites</span>' : '<span class="muted">Not allowed yet</span>';
+  $('access-btn').textContent = on ? 'Remove access' : 'Allow website access';
+  $('access-btn').className = on ? 'danger' : 'primary';
+  $('access-btn').onclick = async () => {
+    if (on) await chrome.permissions.remove(ALL_SITES);
+    else await chrome.permissions.request(ALL_SITES);
+    renderAccess();
+  };
+}
+renderAccess();
