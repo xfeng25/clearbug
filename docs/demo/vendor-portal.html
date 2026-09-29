@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Northwind Supplier Portal – New Vendor Request</title>
+  <!-- A deliberately buggy demo app for trying ClearBug. Fictional company. -->
+  <style>
+    body { margin: 0; font: 14px/1.5 system-ui, sans-serif; background: #f4f5f7; color: #172b4d; }
+    header { background: #0b3d5c; color: #fff; padding: 0 24px; display: flex; align-items: center; gap: 28px; height: 52px; }
+    header b { font-size: 16px; }
+    nav a { color: #cfe3f0; text-decoration: none; margin-right: 18px; padding: 15px 0; }
+    nav a.active { color: #fff; border-bottom: 3px solid #4fb3e8; }
+    main { max-width: 720px; margin: 28px auto; background: #fff; border-radius: 8px; padding: 24px 28px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p.sub { color: #5e6c84; margin: 0 0 20px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+    label { font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px; }
+    input, select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #c1c7d0; border-radius: 4px; font: inherit; }
+    .full { grid-column: 1 / -1; }
+    .check { display: flex; gap: 8px; align-items: center; font-weight: 400; font-size: 14px; }
+    .check input { width: auto; }
+    .actions { margin-top: 20px; display: flex; gap: 10px; }
+    button { padding: 9px 18px; border-radius: 4px; border: 1px solid #c1c7d0; background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    button.primary { background: #0b6fb3; color: #fff; border-color: #0b6fb3; }
+    .banner { margin-top: 18px; padding: 12px 14px; border-radius: 4px; }
+    .banner.err { background: #ffebe6; color: #bf2600; border: 1px solid #ffbdad; }
+    .banner.ok { background: #e3fcef; color: #006644; }
+    .view { display: none; } .view.on { display: block; }
+    table { width: 100%; border-collapse: collapse; } td, th { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <header>
+    <b>Northwind Supplier Portal</b>
+    <nav>
+      <a href="#" data-view="dashboard">Dashboard</a>
+      <a href="#" data-view="vendors">Vendors</a>
+      <a href="#" data-view="new" class="active">New vendor request</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="view" id="view-dashboard">
+      <h1>Dashboard</h1>
+      <p class="sub">3 requests waiting for your approval.</p>
+    </section>
+
+    <section class="view" id="view-vendors">
+      <h1>Vendors</h1>
+      <table><tr><th>Vendor</th><th>Country</th><th>Status</th></tr>
+        <tr><td>Harbor Freight Co.</td><td>United States</td><td>Active</td></tr>
+        <tr><td>Kyoto Paper Works</td><td>Japan</td><td>Pending</td></tr>
+      </table>
+    </section>
+
+    <section class="view on" id="view-new">
+      <h1>New vendor request</h1>
+      <p class="sub">Submit a new supplier for finance approval.</p>
+      <form id="vendor-form">
+        <div class="grid">
+          <div class="full"><label for="vendor_name">Vendor name</label><input id="vendor_name" name="vendor_name" required></div>
+          <div><label for="tax_id">Tax ID</label><input id="tax_id" name="tax_id"></div>
+          <div><label for="country">Country</label>
+            <select id="country" name="country">
+              <option value="">Select…</option><option>United States</option><option>Canada</option><option>China</option><option>Japan</option>
+            </select></div>
+          <div><label for="payment_terms">Payment terms</label>
+            <select id="payment_terms" name="payment_terms"><option>Net 30</option><option>Net 45</option><option>Net 60</option></select></div>
+          <div><label for="iban">Bank account (IBAN)</label><input id="iban" name="iban"></div>
+          <div class="full"><label for="contact_email">Contact email</label><input id="contact_email" name="contact_email" type="email"></div>
+          <div class="full"><label class="check"><input type="checkbox" id="confirm" name="confirm"> I confirm the vendor details are correct</label></div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary">Submit for approval</button>
+          <button type="button" id="save-draft">Save draft</button>
+        </div>
+      </form>
+      <div id="result"></div>
+    </section>
+  </main>
+
+  <script>
+    // Simple single-page navigation (ClearBug records these route changes)
+    document.querySelectorAll('nav a').forEach((a) => a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const v = a.dataset.view;
+      document.querySelectorAll('nav a').forEach((x) => x.classList.toggle('active', x === a));
+      document.querySelectorAll('.view').forEach((x) => x.classList.toggle('on', x.id === 'view-' + v));
+      history.pushState({}, '', '#/' + v);
+      document.title = 'Northwind Supplier Portal – ' + a.textContent;
+    }));
+
+    // BUG 1: submitting calls an API that fails, and the page crashes on the response
+    document.getElementById('vendor-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const out = document.getElementById('result');
+      out.innerHTML = '';
+      try {
+        const res = await fetch('api/vendors', { method: 'POST', body: new FormData(e.target) });
+        const data = await res.json();
+        out.innerHTML = '<div class="banner ok">Request ' + data.requestId + ' submitted.</div>';
+      } catch (err) {
+        console.error('Vendor request failed:', err);
+        out.innerHTML = '<div class="banner err"><b>Something went wrong.</b> Please try again later. (Error code NW-5021)</div>';
+      }
+    });
+
+    // BUG 2: "Save draft" throws a script error and nothing happens on screen
+    document.getElementById('save-draft').addEventListener('click', () => {
+      const draft = JSON.parse(localStorage.getItem('nw-draft'));
+      draft.savedAt = new Date().toISOString();
+    });
+  </script>
+</body>
+</html>

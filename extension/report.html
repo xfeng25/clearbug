@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bug report · ClearBug</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+    header.top .left { display: flex; align-items: center; gap: 14px; }
+    header.top h1 { font-size: 17px; }
+    main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, 1fr); gap: 20px; padding: 20px 24px 60px; max-width: 1500px; margin: 0 auto; }
+    @media (max-width: 960px) { main { grid-template-columns: 1fr; padding: 16px; } }
+    .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .card h2 { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font-size: 12px; }
+
+    .shot-wrap { position: relative; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-2); }
+    canvas#shot { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: none; }
+    .shot-empty { padding: 50px 20px; text-align: center; color: var(--muted); }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .toolbar .btns { display: flex; gap: 6px; }
+    .toolbar button { padding: 4px 10px; font-size: 13px; }
+
+    ul.ctx { list-style: none; margin: 0 0 14px; padding: 0; border: 1px solid var(--border); border-radius: 8px; max-height: 280px; overflow: auto; }
+    ul.ctx li { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px 6px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    ul.ctx li:last-child { border-bottom: 0; }
+    ul.ctx li .n { color: var(--muted); min-width: 20px; font-variant-numeric: tabular-nums; }
+    ul.ctx li .t { flex: 1; overflow-wrap: anywhere; }
+    ul.ctx li.err .t { color: var(--danger); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+    ul.ctx li.empty { color: var(--muted); }
+    .ctx-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 150px; gap: 10px; }
+    #steps { font-family: inherit; min-height: 140px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .actions button { flex: 1 1 auto; }
+    .meta { font-size: 12px; color: var(--muted); display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+    .meta b { font-weight: 600; color: var(--text); }
+    .meta span { overflow-wrap: anywhere; }
+    .ai-note { font-size: 12px; color: var(--muted); margin: -4px 0 12px; }
+    #missing { margin-bottom: 12px; }
+    .gen-row { display: flex; gap: 10px; align-items: flex-end; }
+    .gen-row label.field { flex: 0 0 130px; margin-bottom: 0; }
+    .gen-row button { flex: 1; }
+    #print-view { display: none; }
+    @media print {
+      body { background: #fff; color: #000; }
+      body > *:not(#print-view) { display: none !important; }
+      #print-view { display: block; font-size: 12px; color: #000; }
+      #print-view h1 { font-size: 18px; margin: 0 0 4px; }
+      #print-view .pid { color: #555; font-weight: 700; }
+      #print-view table.m { border-collapse: collapse; margin: 10px 0 14px; width: 100%; }
+      #print-view table.m td { border: 1px solid #ccc; padding: 4px 8px; vertical-align: top; }
+      #print-view table.m td:first-child { width: 130px; font-weight: 600; background: #f4f4f6; }
+      #print-view h2 { font-size: 13px; margin: 14px 0 4px; }
+      #print-view ol { margin: 0; padding-left: 20px; }
+      #print-view p { margin: 0; white-space: pre-wrap; }
+      #print-view .err { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #a1261b; }
+      #print-view img { max-width: 100%; border: 1px solid #ccc; margin-top: 6px; page-break-inside: avoid; }
+      #print-view .foot { margin-top: 14px; color: #777; font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="left">
+      <div class="brand"><img src="icons/icon32.png" alt="">ClearBug</div>
+      <h1 id="heading">New bug report</h1>
+      <span id="saved-badge" class="hidden"></span>
+    </div>
+    <a href="defects.html">Defect log →</a>
+  </header>
+
+  <main>
+    <div class="col">
+      <section class="card">
+        <div class="toolbar">
+          <h2 style="margin:0">Screenshot</h2>
+          <div class="btns">
+            <button id="undo" title="Remove last box">Undo</button>
+            <button id="clear-boxes">Clear boxes</button>
+            <button id="dl-shot">Download</button>
+          </div>
+        </div>
+        <p class="muted small" style="margin:0 0 8px">Drag on the image to draw a red box around the problem. You can also paste (Ctrl/⌘+V) another image to replace it.</p>
+        <div class="shot-wrap">
+          <canvas id="shot" class="hidden"></canvas>
+          <div id="shot-empty" class="shot-empty hidden">No screenshot. Chrome doesn't allow captures on some pages.<br>Paste an image here with Ctrl/⌘+V.</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>What ClearBug recorded</h2>
+        <div class="ctx-head"><h3>Your steps</h3><span class="muted small">Remove anything unrelated</span></div>
+        <ul class="ctx" id="rec-steps"></ul>
+        <div class="ctx-head"><h3>Errors caught on the page</h3></div>
+        <ul class="ctx" id="rec-errors"></ul>
+        <div class="meta" id="meta"></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card">
+        <h2><span class="num">1</span>Describe the problem</h2>
+        <div id="tc-link" class="callout info hidden" style="margin-bottom:12px"></div>
+        <label class="field">
+          <span>In your own words, what went wrong?</span>
+          <textarea id="description" rows="4" placeholder="e.g. I clicked Submit on the new vendor form and got a red error. The vendor was not created. (Any language is fine: 中文 / English)"></textarea>
+        </label>
+        <label class="field">
+          <span>What did you expect to happen? <span class="muted">(optional)</span></span>
+          <textarea id="expected-input" rows="2" placeholder="e.g. The vendor is saved and I see a confirmation message."></textarea>
+        </label>
+        <div class="gen-row">
+          <label class="field"><span>Report language</span><select id="language"></select></label>
+          <button class="primary" id="generate">✨ Write the report</button>
+        </div>
+        <p class="muted small" id="gen-hint" style="margin:8px 0 0"></p>
+        <div id="gen-error" class="callout error hidden" style="margin-top:10px"></div>
+      </section>
+
+      <section class="card hidden" id="report-card">
+        <h2><span class="num">2</span>Review and save</h2>
+        <p class="ai-note" id="ai-note"></p>
+        <div id="missing" class="callout warn hidden"></div>
+        <label class="field"><span>Title</span><input type="text" id="title"></label>
+        <div class="grid2">
+          <label class="field"><span>Why this severity</span><input type="text" id="severity-reason"></label>
+          <label class="field"><span>Severity</span><select id="severity"></select></label>
+        </div>
+        <label class="field"><span>Steps to reproduce</span><textarea id="steps" rows="7"></textarea><small>One step per line.</small></label>
+        <label class="field"><span>Expected result</span><textarea id="expected" rows="2"></textarea></label>
+        <label class="field"><span>Actual result</span><textarea id="actual" rows="3"></textarea></label>
+        <div class="actions">
+          <button class="primary" id="save">Save to defect log</button>
+          <button class="primary hidden" id="save-back">Save & back to testing</button>
+        </div>
+        <h3 style="margin:16px 0 8px">Share this bug</h3>
+        <div class="actions">
+          <button id="export-pdf">⬇ PDF</button>
+          <button id="export-xlsx">⬇ Excel</button>
+          <button id="copy">Copy text</button>
+        </div>
+        <p class="muted small" style="margin:8px 0 0">PDF and Excel include the report and the screenshot in one file. "Copy text" is for pasting into Jira, Teams or email.</p>
+      </section>
+    </div>
+  </main>
+
+  <!-- Only visible when printing / saving as PDF -->
+  <div id="print-view"></div>
+
+  <script src="lib/exceljs.min.js"></script>
+  <script type="module" src="report.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClearBug</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header class="sp-head">
+    <div class="brand"><img src="icons/icon32.png" alt="">ClearBug</div>
+    <nav>
+      <a href="defects.html" target="_blank" id="nav-defects">Defects</a>
+      <a href="#" id="nav-settings">Settings</a>
+    </nav>
+  </header>
+
+  <div id="recbar" class="recbar hidden">
+    <span class="rec-dot"></span>
+    <span id="rec-text">Recording steps and page errors</span>
+    <button class="link" data-action="stop-recording">Stop</button>
+  </div>
+
+  <main id="app"></main>
+
+  <input type="file" id="file" accept=".xlsx,.csv,.tsv,.txt" hidden>
+  <script src="lib/exceljs.min.js"></script>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

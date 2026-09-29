@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New test case · ClearBug</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+    header.top .left { display: flex; align-items: center; gap: 14px; }
+    header.top h1 { font-size: 17px; }
+    main { max-width: 1200px; margin: 0 auto; padding: 20px 24px 80px; display: flex; flex-direction: column; gap: 16px; }
+    .card h2 { margin-bottom: 4px; }
+    .card > p { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+    .meta { display: grid; grid-template-columns: 160px 1fr 1fr; gap: 0 12px; }
+    .meta .wide { grid-column: 1 / -1; }
+    @media (max-width: 800px) { .meta { grid-template-columns: 1fr; } main { padding: 16px; } }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px; border-bottom: 1px solid var(--border); }
+    td { padding: 6px; vertical-align: top; border-bottom: 1px solid var(--border); }
+    td.n { width: 34px; font-weight: 700; color: var(--muted); padding-top: 14px; text-align: center; }
+    td textarea { min-height: 58px; font-size: 13px; }
+    td.x { width: 64px; white-space: nowrap; padding-top: 10px; }
+    td.x button { padding: 2px 6px; }
+    tr.empty-exp textarea[data-k="expected"] { border-color: var(--warn-border); background: var(--warn-soft); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    details.rec summary { cursor: pointer; font-weight: 600; }
+    details.rec ol { margin: 10px 0 0; padding-left: 22px; font-size: 13px; }
+    details.rec li.err { color: var(--danger); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+    #notes { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="left">
+      <div class="brand"><img src="icons/icon32.png" alt="">ClearBug</div>
+      <h1>New test case from your recording</h1>
+    </div>
+    <a href="options.html" target="_blank">Settings</a>
+  </header>
+
+  <main>
+    <div id="empty" class="card hidden">
+      <h2>Nothing recorded yet</h2>
+      <p>Open the ClearBug side panel, click <b>Start recording</b>, go through the process once in the system, then click <b>Save my steps as a test case</b>.</p>
+    </div>
+
+    <div id="builder" class="hidden" style="display:contents">
+      <section class="card">
+        <h2>Test case details</h2>
+        <p>ClearBug turned your recording into the steps below. Check them, fill in the expected results, then add the test case to your list or download it as Excel.</p>
+        <div class="meta">
+          <label class="field"><span>Test case ID</span><input type="text" id="tc-id"></label>
+          <label class="field"><span>Module / area</span><input type="text" id="tc-module" placeholder="e.g. Vendor onboarding"></label>
+          <label class="field"><span>Scenario</span><input type="text" id="tc-title"></label>
+          <label class="field wide"><span>Precondition <span class="muted">(optional)</span></span><input type="text" id="tc-pre" placeholder="e.g. Logged in as a requester"></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="toolbar">
+          <h2 style="margin:0">Steps</h2>
+          <div class="actions">
+            <select id="language" style="width:auto"></select>
+            <button id="ai">✨ Improve with AI</button>
+          </div>
+        </div>
+        <div id="ai-error" class="callout error hidden" style="margin-bottom:12px"></div>
+        <div id="notes" class="callout warn hidden"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Test step</th><th>Test data</th><th>Expected result</th><th></th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px"><button id="add-step">+ Add step</button></div>
+        <p class="muted small" id="exp-hint" style="margin:10px 0 0"></p>
+      </section>
+
+      <section class="card">
+        <details class="rec">
+          <summary>What ClearBug recorded (<span id="rec-count"></span>)</summary>
+          <ol id="rec-list"></ol>
+        </details>
+      </section>
+
+      <section class="card">
+        <div class="actions">
+          <button class="primary" id="add-suite">Add to my test cases</button>
+          <button id="download">⬇ Download as Excel</button>
+        </div>
+        <p class="muted small" id="suite-hint" style="margin:10px 0 0"></p>
+      </section>
+    </div>
+  </main>
+
+  <script src="lib/exceljs.min.js"></script>
+  <script type="module" src="testcase.js"></script>
+</body>
+</html>

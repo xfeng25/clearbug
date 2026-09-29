@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings · ClearBug</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    main { max-width: 640px; margin: 0 auto; padding: 28px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
+    .head { display: flex; align-items: center; justify-content: space-between; }
+    .card h2 { margin-bottom: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .check { display: flex; gap: 8px; align-items: flex-start; }
+    .check input { margin-top: 4px; }
+    #test-result { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="head">
+      <div class="brand"><img src="icons/icon32.png" alt=""><h1>ClearBug settings</h1></div>
+      <a href="defects.html">Defect log →</a>
+    </div>
+
+    <section class="card">
+      <h2>AI report writing</h2>
+      <label class="field">
+        <span>Claude API key</span>
+        <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
+        <small>Optional. Without a key, ClearBug still records steps and errors and builds reports from a template. Get a key at console.anthropic.com.</small>
+      </label>
+      <label class="field">
+        <span>Model</span>
+        <input type="text" id="model">
+      </label>
+      <label class="field">
+        <span>Default report language</span>
+        <select id="language"></select>
+      </label>
+      <div class="row">
+        <button class="primary" id="save">Save</button>
+        <button id="test">Test connection</button>
+        <span id="test-result"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Privacy</h2>
+      <label class="check">
+        <input type="checkbox" id="maskInputs">
+        <span>Hide the values I type in recorded steps<br><small class="muted">Recorded as "Entered [value hidden] in Vendor name". Passwords and card, SSN or token fields are always hidden.</small></span>
+      </label>
+      <div class="callout info" style="margin-top:12px">
+        Everything ClearBug records stays in your browser. Data only leaves your computer when you click
+        <b>Write the report</b> with an API key set: your note, the steps, errors and screenshot are then sent to Anthropic's API to write that one report.
+      </div>
+    </section>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
