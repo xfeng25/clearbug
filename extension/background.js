@@ -132,10 +132,24 @@ async function startCase({ caseId, module, tester, tab }) {
   await hookOn().catch(() => {});
 }
 
+// Chrome allows about 2 captures per second; if a tester clicks Pass quickly,
+// wait and try again instead of silently losing the screenshot.
+async function captureVisible(windowId, opts) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await chrome.tabs.captureVisibleTab(windowId, opts);
+    } catch (e) {
+      if (!/MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND/.test(String(e && e.message))) throw e;
+      await new Promise((r) => setTimeout(r, 600));
+    }
+  }
+  throw new Error('Screenshot rate limit');
+}
+
 async function captureEvidence(tabId) {
   const tab = await chrome.tabs.get(tabId);
   try {
-    return await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 60 });
+    return await captureVisible(tab.windowId, { format: 'jpeg', quality: 60 });
   } catch (e) {
     return null;
   }
@@ -146,7 +160,7 @@ async function createDraft(tabId, extra = {}) {
 
   let screenshot = null;
   try {
-    screenshot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+    screenshot = await captureVisible(tab.windowId, { format: 'png' });
   } catch (e) {
     // Chrome blocks captures of chrome:// pages, the Web Store, etc.
     console.warn('[ClearBug] screenshot failed:', e && e.message);
@@ -186,6 +200,7 @@ async function createDraft(tabId, extra = {}) {
   await chrome.storage.local.set({ [`draft:${draftId}`]: draft, [`shot:${draftId}`]: screenshot });
   await chrome.tabs.create({
     url: chrome.runtime.getURL(`report.html?draft=${draftId}`),
+    windowId: tab.windowId,
     index: tab.index + 1,
     openerTabId: tab.id,
   });
