@@ -84,10 +84,9 @@ function renderRecbar() {
   const s = state.session;
   const on = !!(s && s.active);
   document.getElementById('recbar').classList.toggle('hidden', !on);
-  if (on) {
-    const errs = (s.errors || []).filter((e) => e.seq > (s.mark || 0)).length;
-    document.getElementById('rec-text').innerHTML = `Recording steps and page errors${errs ? ` · <span style="color:var(--danger)">${errs} error${errs > 1 ? 's' : ''} caught</span>` : ''}`;
-  }
+  // Page errors are collected quietly and attached to the next bug report;
+  // they are not counted here, because the tester decides what is a bug.
+  if (on) document.getElementById('rec-text').textContent = 'Recording your test steps';
 }
 
 function exploratoryCard() {

@@ -49,9 +49,24 @@ function pushEvent(session, event) {
   if (session.steps.length > MAX_STEPS) session.steps.shift();
 }
 
+// Tabs that belong to the test: the tab the session started in and any tab it
+// opens (pop-ups, "open in new tab"). Page errors from other tabs (Notion,
+// email, news sites the tester has open) are ignored so they don't show up as
+// bug reports, and clicks there are not recorded as steps.
+function isTestTab(session, tab) {
+  if (!tab) return true;
+  if (!Array.isArray(session.tabIds)) return true; // sessions from older versions
+  return session.tabIds.includes(tab.id);
+}
+
 async function addEvent(event, sender) {
   const session = await getSession();
   if (!session || !session.active) return;
+  const tab = sender && sender.tab;
+  if (tab && Array.isArray(session.tabIds) && !session.tabIds.length && event.kind !== 'error') {
+    session.tabIds.push(tab.id); // started on a chrome:// page: adopt the first tab the tester works in
+  }
+  if (!isTestTab(session, tab)) return;
   if (sender && sender.tab && !event.url && event.kind !== 'error') event.url = sender.tab.url;
   pushEvent(session, event);
   await chrome.storage.local.set({ session });
@@ -68,6 +83,7 @@ async function startSession({ tester, module, tab }) {
     mark: 0,
     steps: [],
     errors: [],
+    tabIds: tab && tab.id != null ? [tab.id] : [],
   };
   if (tab) pushEvent(session, { kind: 'navigate', text: `Started on page "${(tab.title || tab.url || '').slice(0, 70)}"`, url: tab.url });
 
@@ -105,6 +121,10 @@ async function startCase({ caseId, module, tester, tab }) {
     session = await getSession();
   } else {
     session.mark = session.seq || 0;
+    if (tab && tab.id != null) {
+      if (!Array.isArray(session.tabIds)) session.tabIds = [];
+      if (!session.tabIds.includes(tab.id)) session.tabIds.push(tab.id);
+    }
     if (tab) pushEvent(session, { kind: 'navigate', text: `Started test case ${caseId} on "${(tab.title || '').slice(0, 60)}"`, url: tab.url });
   }
   session.caseId = caseId;
@@ -270,12 +290,27 @@ async function onAccessGranted() {
   }));
 }
 
-// Session started: register the page hook and add it to open tabs right away.
+// Session started: register the page hook for new page loads and add it to
+// the tab being tested right away.
 async function hookOn() {
   if (!(await syncContentScripts())) return;
-  const tabs = await chrome.tabs.query(WEB_TABS);
-  await Promise.all(tabs.map((t) => injectHook(t.id)));
+  const session = await getSession();
+  const ids = (session && session.tabIds) || [];
+  await Promise.all(ids.map((id) => injectHook(id)));
 }
+
+// A tab opened from a test tab (pop-up, new window) is part of the test too.
+chrome.tabs.onCreated.addListener((tab) => {
+  if (tab.openerTabId == null) return;
+  serial(async () => {
+    const session = await getSession();
+    if (!session || !session.active || !Array.isArray(session.tabIds)) return;
+    if (session.tabIds.includes(tab.openerTabId) && !session.tabIds.includes(tab.id)) {
+      session.tabIds.push(tab.id);
+      await chrome.storage.local.set({ session });
+    }
+  });
+});
 
 chrome.permissions.onAdded.addListener(() => { onAccessGranted(); });
 chrome.permissions.onRemoved.addListener(() => { syncContentScripts(); });
