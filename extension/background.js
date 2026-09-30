@@ -99,8 +99,7 @@ async function stopSession() {
     session.stoppedAt = new Date().toISOString();
     await chrome.storage.local.set({ session });
   }
-  await setBadge(false);  // Unregister the page hook; recorder.js removes it from open pages.
-  await syncContentScripts().catch(() => {});
+  await setBadge(false);  // recorder.js removes the page hook from open test pages.
 }
 
 async function clearSteps() {
@@ -130,6 +129,7 @@ async function startCase({ caseId, module, tester, tab }) {
   session.caseId = caseId;
   if (tester) session.tester = tester;
   await chrome.storage.local.set({ session });
+  await hookOn().catch(() => {});
 }
 
 async function captureEvidence(tabId) {
@@ -251,21 +251,25 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => 
 const SCRIPT_IDS = ['cb-hook', 'cb-recorder'];
 const ALL_SITES = { origins: ['<all_urls>'] };
 
-async function syncContentScripts() {
-  const granted = await chrome.permissions.contains(ALL_SITES);
-  const existing = await chrome.scripting.getRegisteredContentScripts({ ids: SCRIPT_IDS }).catch(() => []);
-  if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: existing.map((s) => s.id) });
-  if (!granted) return false;
-  // The recorder is quiet unless a session is active. The page hook (which wraps
-  // fetch / XHR / console.error in the page) is only registered during a session,
-  // so ClearBug stays out of the way on sites you are not testing.
-  const session = await getSession();
-  const scripts = [{ id: 'cb-recorder', matches: ['<all_urls>'], js: ['content/recorder.js'], runAt: 'document_start' }];
-  if (session && session.active) {
-    scripts.unshift({ id: 'cb-hook', matches: ['<all_urls>'], js: ['content/page-hook.js'], runAt: 'document_start', world: 'MAIN' });
-  }
-  await chrome.scripting.registerContentScripts(scripts);
-  return true;
+// Only the recorder is registered for page loads; it stays silent unless a test
+// session is running. The page hook (which wraps fetch / XHR / console.error to
+// catch page errors) is never registered site-wide: it is injected only into
+// the tabs being tested, so other sites (Amazon, Notion…) are never touched.
+let syncChain = Promise.resolve();
+function syncContentScripts() {
+  const run = async () => {
+    const granted = await chrome.permissions.contains(ALL_SITES);
+    const existing = await chrome.scripting.getRegisteredContentScripts({ ids: SCRIPT_IDS }).catch(() => []);
+    if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: existing.map((s) => s.id) });
+    if (!granted) return false;
+    await chrome.scripting.registerContentScripts([
+      { id: 'cb-recorder', matches: ['<all_urls>'], js: ['content/recorder.js'], runAt: 'document_start' },
+    ]);
+    return true;
+  };
+  const p = syncChain.then(run);
+  syncChain = p.catch(() => false);
+  return syncChain;
 }
 
 const WEB_TABS = { url: ['http://*/*', 'https://*/*', 'file:///*'] };
@@ -276,40 +280,35 @@ async function injectRecorder(tabId) {
 }
 
 async function injectHook(tabId) {
-  try { await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', files: ['content/page-hook.js'] }); }
+  try { await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', files: ['content/page-hook.js'], injectImmediately: true }); }
   catch (_) { /* chrome:// pages, web store, no access, etc. */ }
+}
+
+async function testTabIds() {
+  const session = await getSession();
+  return session && session.active && Array.isArray(session.tabIds) ? session.tabIds : [];
 }
 
 async function onAccessGranted() {
   if (!(await syncContentScripts())) return;
-  const session = await getSession();
+  const ids = await testTabIds();
   const tabs = await chrome.tabs.query(WEB_TABS);
   await Promise.all(tabs.map(async (t) => {
-    if (session && session.active) await injectHook(t.id);
+    if (ids.includes(t.id)) await injectHook(t.id);
     await injectRecorder(t.id);
   }));
 }
 
-// Session started: register the page hook for new page loads and add it to
-// the tab being tested right away.
+// Session started: add the page hook to the tab being tested.
 async function hookOn() {
-  if (!(await syncContentScripts())) return;
-  const session = await getSession();
-  const ids = (session && session.tabIds) || [];
+  const ids = await testTabIds();
   await Promise.all(ids.map((id) => injectHook(id)));
 }
 
-// A tab opened from a test tab (pop-up, new window) is part of the test too.
-chrome.tabs.onCreated.addListener((tab) => {
-  if (tab.openerTabId == null) return;
-  serial(async () => {
-    const session = await getSession();
-    if (!session || !session.active || !Array.isArray(session.tabIds)) return;
-    if (session.tabIds.includes(tab.openerTabId) && !session.tabIds.includes(tab.id)) {
-      session.tabIds.push(tab.id);
-      await chrome.storage.local.set({ session });
-    }
-  });
+// A test tab loads a new page: add the hook to it as early as possible.
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.status !== 'loading') return;
+  testTabIds().then((ids) => { if (ids.includes(tabId)) injectHook(tabId); }).catch(() => {});
 });
 
 chrome.permissions.onAdded.addListener(() => { onAccessGranted(); });
