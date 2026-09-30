@@ -52,7 +52,7 @@ Open the practice site, click the ClearBug button, import the sample file and ru
 
 | Part | File | Role |
 |---|---|---|
-| Error hook | `content/page-hook.js` | Runs in the page's context; observes `console.error`, uncaught errors, failed `fetch`/XHR and SPA route changes. |
+| Error hook | `content/page-hook.js` | Injected only into the tab being tested. Listens for uncaught errors, failed resources, HTTP errors (from the browser's resource timing) and SPA route changes, without wrapping any page function, so it never shows up in other sites' errors. |
 | Step recorder | `content/recorder.js` | Turns clicks and field changes into readable steps using accessible names. |
 | Service worker | `background.js` | Owns the recording session, captures screenshots and evidence, creates report drafts. |
 | Side panel | `sidepanel.*` | Import, column mapping, step-by-step execution, results. |
