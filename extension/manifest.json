@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ClearBug – UAT Test Runner & Bug Reporter",
   "short_name": "ClearBug",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Import your UAT test cases, run them step by step, and turn failures into developer-ready bug reports with evidence.",
   "icons": {
     "16": "icons/icon16.png",

@@ -73,7 +73,7 @@ async function startSession({ tester, module, tab }) {
 
   const { settings = {} } = await chrome.storage.local.get('settings');
   await chrome.storage.local.set({ session, settings: { ...settings, lastTester: tester || '', lastModule: module || '' } });
-  await setBadge(true);
+  await setBadge(true);  await hookOn().catch(() => {});
 }
 
 async function stopSession() {
@@ -83,7 +83,8 @@ async function stopSession() {
     session.stoppedAt = new Date().toISOString();
     await chrome.storage.local.set({ session });
   }
-  await setBadge(false);
+  await setBadge(false);  // Unregister the page hook; recorder.js removes it from open pages.
+  await syncContentScripts().catch(() => {});
 }
 
 async function clearSteps() {
@@ -235,24 +236,45 @@ async function syncContentScripts() {
   const existing = await chrome.scripting.getRegisteredContentScripts({ ids: SCRIPT_IDS }).catch(() => []);
   if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: existing.map((s) => s.id) });
   if (!granted) return false;
-  await chrome.scripting.registerContentScripts([
-    { id: 'cb-hook', matches: ['<all_urls>'], js: ['content/page-hook.js'], runAt: 'document_start', world: 'MAIN' },
-    { id: 'cb-recorder', matches: ['<all_urls>'], js: ['content/recorder.js'], runAt: 'document_start' },
-  ]);
+  // The recorder is quiet unless a session is active. The page hook (which wraps
+  // fetch / XHR / console.error in the page) is only registered during a session,
+  // so ClearBug stays out of the way on sites you are not testing.
+  const session = await getSession();
+  const scripts = [{ id: 'cb-recorder', matches: ['<all_urls>'], js: ['content/recorder.js'], runAt: 'document_start' }];
+  if (session && session.active) {
+    scripts.unshift({ id: 'cb-hook', matches: ['<all_urls>'], js: ['content/page-hook.js'], runAt: 'document_start', world: 'MAIN' });
+  }
+  await chrome.scripting.registerContentScripts(scripts);
   return true;
 }
 
-async function injectInto(tabId) {
-  try {
-    await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', files: ['content/page-hook.js'] });
-    await chrome.scripting.executeScript({ target: { tabId }, files: ['content/recorder.js'] });
-  } catch (_) { /* chrome:// pages, web store, etc. */ }
+const WEB_TABS = { url: ['http://*/*', 'https://*/*', 'file:///*'] };
+
+async function injectRecorder(tabId) {
+  try { await chrome.scripting.executeScript({ target: { tabId }, files: ['content/recorder.js'] }); }
+  catch (_) { /* chrome:// pages, web store, etc. */ }
+}
+
+async function injectHook(tabId) {
+  try { await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', files: ['content/page-hook.js'] }); }
+  catch (_) { /* chrome:// pages, web store, no access, etc. */ }
 }
 
 async function onAccessGranted() {
   if (!(await syncContentScripts())) return;
-  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file:///*'] });
-  await Promise.all(tabs.map((t) => injectInto(t.id)));
+  const session = await getSession();
+  const tabs = await chrome.tabs.query(WEB_TABS);
+  await Promise.all(tabs.map(async (t) => {
+    if (session && session.active) await injectHook(t.id);
+    await injectRecorder(t.id);
+  }));
+}
+
+// Session started: register the page hook and add it to open tabs right away.
+async function hookOn() {
+  if (!(await syncContentScripts())) return;
+  const tabs = await chrome.tabs.query(WEB_TABS);
+  await Promise.all(tabs.map((t) => injectHook(t.id)));
 }
 
 chrome.permissions.onAdded.addListener(() => { onAccessGranted(); });

@@ -11,15 +11,24 @@
 
   const SENSITIVE = /pass(word)?|pwd|ssn|social.?sec|card.?num|cc-|cvv|cvc|iban|secret|token|\bpin\b/i;
 
+  // Tell page-hook.js (page world) to install or remove itself
+  const tellHook = () => {
+    try { window.postMessage({ __clearbugControl: true, active }, '*'); } catch (_) { /* ignore */ }
+  };
+
   chrome.storage.local.get(['session', 'settings']).then(({ session, settings }) => {
     active = !!(session && session.active);
+    tellHook();
     maskAll = !!(settings && settings.maskInputs);
     if (active) whenReady(() => logPage('Opened page'));
   }).catch(() => {});
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes.session) active = !!(changes.session.newValue && changes.session.newValue.active);
+    if (changes.session) {
+      const next = !!(changes.session.newValue && changes.session.newValue.active);
+      if (next !== active) { active = next; tellHook(); }
+    }
     if (changes.settings) maskAll = !!(changes.settings.newValue && changes.settings.newValue.maskInputs);
   });
 
@@ -172,7 +181,7 @@
 
   // Messages from page-hook.js (errors, route changes)
   window.addEventListener('message', (e) => {
-    if (e.source !== window || !e.data || e.data.__clearbug !== true) return;
+    if (e.source !== window || !e.data || e.data.__clearbug !== true || !active) return;
     const d = e.data;
     if (d.kind === 'route') {
       if (d.message === lastRouteUrl) return;
