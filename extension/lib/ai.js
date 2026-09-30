@@ -9,7 +9,8 @@ Rules:
 - Use only facts from the input and the screenshot. Never invent test data, IDs, or error messages.
 - Steps to reproduce: rewrite the recorded actions as short, numbered, imperative steps. Drop noise (accidental clicks, repeated actions, steps unrelated to the problem). Keep the test data values the tester entered. The first step says which page to start on. The last step is the action that triggers the problem.
 - Keep on-screen names (buttons, field labels, menu items, values) exactly as they appear, in their original language, in quotes. Do not translate them.
-- Actual result: what happened, including any error message visible in the screenshot or captured from the page (console / network errors). Be specific.
+- Actual result: what the tester saw on screen, in plain business language, including any error message visible in the screenshot. Be specific. Do not paste technical logs (HTTP status codes, script errors, file names) into it and do not guess at code causes: those are listed separately for developers.
+- Technical errors captured from the page are background context only. They may include errors unrelated to this problem. Use them only to judge severity (e.g. a server error on the failing action).
 - Expected result: use the tester's expectation. If none was given, infer the most reasonable expectation and end it with " (inferred)".
 - Severity, choose one:
   Critical = blocks a core business process, data loss or corruption, or security issue, with no workaround.
@@ -49,7 +50,7 @@ Environment: ${describeEnv(input.env)}
 Recorded actions, oldest first (captured automatically, may contain noise):
 ${steps || '(no actions recorded)'}
 
-Errors captured on the page:
+Technical errors captured automatically from the page (for context only; may be unrelated; do not copy into the report):
 ${errors || '(none)'}
 
 ${input.screenshotBase64 ? 'Attached: screenshot at the moment the tester reported the bug. Red boxes, if any, were drawn by the tester to mark the problem.' : 'No screenshot available.'}
@@ -201,8 +202,7 @@ export function generateFromTemplate(input) {
     ]
     : (input.steps || []).map((s) => s.text);
   const expected = input.expected || (tc && tc.expected) || '';
-  let actual = desc;
-  if (errors.length) actual += `\n\nErrors on the page:\n${errors.map((e) => `- ${e.text}`).join('\n')}`;
+  const actual = desc; // technical errors are listed separately, not in the business description
 
   const missingInfo = [];
   if (!expected) missingInfo.push('What did you expect to happen?');

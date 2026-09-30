@@ -189,7 +189,7 @@ export function addDefectsSheet(wb, defects) {
     ['Expected Result', 40, (d) => d.expected],
     ['Actual Result', 40, (d) => d.actual],
     ['Severity Reason', 35, (d) => d.severityReason],
-    ['Captured Errors', 45, (d) => (d.errors || []).map((e) => `[${e.errorType}] ${e.text}`).join('\n')],
+    ['Technical Details (auto-captured)', 45, (d) => (d.errors || []).map((e) => `[${e.errorType}] ${e.text}`).join('\n')],
     ['Page URL', 35, (d) => d.url],
     ['Environment', 28, (d) => describeEnv(d.env)],
   ];

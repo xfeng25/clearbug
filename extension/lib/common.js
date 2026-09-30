@@ -14,17 +14,17 @@ export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const LABELS = {
   en: {
     severity: 'Severity', module: 'System / module', env: 'Environment', url: 'Page', steps: 'Steps to reproduce',
-    expected: 'Expected result', actual: 'Actual result', errors: 'Errors captured on the page',
+    expected: 'Expected result', actual: 'Actual result', errors: 'Technical details for developers (captured automatically)', errorsNote: 'Recorded by the browser during the test. May include background errors unrelated to this issue.',
     reporter: 'Reported by', date: 'Date', shot: 'Screenshot attached.', testCase: 'Test case', step: 'failed at step',
   },
   'zh-Hans': {
     severity: '严重程度', module: '系统/模块', env: '测试环境', url: '页面', steps: '复现步骤',
-    expected: '预期结果', actual: '实际结果', errors: '页面捕获的错误',
+    expected: '预期结果', actual: '实际结果', errors: '给开发的技术信息（自动记录）', errorsNote: '测试时浏览器自动记录，可能包含与本问题无关的后台错误。',
     reporter: '报告人', date: '日期', shot: '截图见附件。', testCase: '测试用例', step: '失败步骤',
   },
   'zh-Hant': {
     severity: '嚴重程度', module: '系統/模組', env: '測試環境', url: '頁面', steps: '重現步驟',
-    expected: '預期結果', actual: '實際結果', errors: '頁面擷取的錯誤',
+    expected: '預期結果', actual: '實際結果', errors: '給開發的技術資訊（自動記錄）', errorsNote: '測試時瀏覽器自動記錄，可能包含與本問題無關的背景錯誤。',
     reporter: '回報人', date: '日期', shot: '截圖見附件。', testCase: '測試案例', step: '失敗步驟',
   },
 };
@@ -115,6 +115,7 @@ export function reportToText(d) {
   if (d.errors && d.errors.length) {
     lines.push('');
     lines.push(`${L.errors}:`);
+    lines.push(`(${L.errorsNote})`);
     d.errors.forEach((e) => lines.push(`- [${e.errorType}] ${e.text}`));
   }
   if (d.hasScreenshot) {

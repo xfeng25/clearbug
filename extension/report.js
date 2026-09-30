@@ -88,7 +88,7 @@ function renderContext() {
   const errs = state.recErrors;
   $('rec-errors').innerHTML = errs.length
     ? errs.map((e, i) => `<li class="err"><span class="t">${esc(e.text)}${e.detail ? `<br><span class="muted">${esc(e.detail)}</span>` : ''}</span><button class="icon" data-err="${i}" title="Remove">×</button></li>`).join('')
-    : '<li class="empty">No errors caught.</li>';
+    : '<li class="empty">None captured.</li>';
 
   const c = state.ctx;
   const tc = c.testCase;
@@ -387,7 +387,7 @@ $('export-pdf').addEventListener('click', async () => {
     <h2>${esc(L.steps)}</h2><ol>${d.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
     <h2>${esc(L.expected)}</h2><p>${esc(d.expected || '-')}</p>
     <h2>${esc(L.actual)}</h2><p>${esc(d.actual || '-')}</p>
-    ${d.errors && d.errors.length ? `<h2>${esc(L.errors)}</h2>${d.errors.map((e) => `<p class="err">[${esc(e.errorType)}] ${esc(e.text)}</p>`).join('')}` : ''}
+    ${d.errors && d.errors.length ? `<h2>${esc(L.errors)}</h2><p class="muted">${esc(L.errorsNote)}</p>${d.errors.map((e) => `<p class="err">[${esc(e.errorType)}] ${esc(e.text)}</p>`).join('')}` : ''}
     ${shot ? `<h2>Screenshot</h2><img id="print-shot" src="${shot}" alt="">` : ''}
     <div class="foot">Created with ClearBug · ${esc(fmtDate(new Date().toISOString()))}</div>`;
   const img = document.getElementById('print-shot');
